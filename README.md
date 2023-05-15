@@ -47,3 +47,14 @@ yarn start
 ```bash
 npm i -g @force-bridge/cli
 ```
+
+### Integration test
+
+``` bash
+# clean cache
+rm -rf workdir/integration/
+# use node 14
+nvm use 14
+# run ci
+PATH=`pwd`:$PATH make github-ci
+```

@@ -39,10 +39,10 @@ export async function deployDev(
   cachePath?: string,
   ckbDeps?: CkbDeps,
 ): Promise<DeployDevResult> {
+  initLumosConfig(env);
   if (cachePath && fs.existsSync(cachePath)) {
     return JSON.parse(fs.readFileSync(cachePath, 'utf8'));
   }
-  initLumosConfig(env);
   const verifierConfigs = lodash.range(MULTISIG_NUMBER).map((_i) => genRandomVerifierConfig());
   logger.debug('verifierConfigs', verifierConfigs);
   const ethMultiSignAddresses = verifierConfigs.map((vc) => vc.ethAddress);
