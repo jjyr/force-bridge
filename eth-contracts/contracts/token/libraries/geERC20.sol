@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/drafts/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 import "./TransferAndCallToken.sol";
 
 /// @title Arbitrum extended ERC20
@@ -27,7 +27,9 @@ import "./TransferAndCallToken.sol";
 contract geERC20 is ERC20PermitUpgradeable, TransferAndCallToken {
     using AddressUpgradeable for address;
 
-    constructor() public initializer {
+    uint8 private _decimals;
+
+    constructor() initializer {
         // this is expected to be used as the logic contract behind a proxy
         // override the constructor if you don't wish to use the initialize method
     }
@@ -40,5 +42,13 @@ contract geERC20 is ERC20PermitUpgradeable, TransferAndCallToken {
         __ERC20Permit_init(name_);
         __ERC20_init(name_, symbol_);
         _setupDecimals(decimals_);
+    }
+
+    function _setupDecimals(uint8 decimals_) internal onlyInitializing {
+        _decimals = decimals_;
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
     }
 }
