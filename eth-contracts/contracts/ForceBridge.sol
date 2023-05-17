@@ -2,15 +2,13 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import {IERC20} from "./interfaces/IERC20.sol";
-import {SafeERC20} from "./libraries/SafeERC20.sol";
+import {IGwToken} from "./token/token/IGwToken.sol";
 import {Address} from "./libraries/Address.sol";
 import {MultisigUtils} from "./libraries/MultisigUtils.sol";
 import {SafeMath} from "./libraries/SafeMath.sol";
 
 contract ForceBridge {
     using Address for address;
-    using SafeERC20 for IERC20;
 
     // refer to https://github.com/ethereum/EIPs/blob/master/EIPS/eip-712.md
     uint256 public constant SIGNATURE_SIZE = 65;
@@ -283,7 +281,7 @@ contract ForceBridge {
             if (r.token == address(0)) {
                 payable(r.recipient).transfer(r.amount);
             } else {
-                IERC20(r.token).safeTransfer(r.recipient, r.amount);
+                IGwToken(r.token).bridgeMint(r.recipient, r.amount);
             }
             emit Unlocked(
                 r.token,
@@ -317,7 +315,7 @@ contract ForceBridge {
         bytes memory sudtExtraData
     ) public {
         require (amount > 0, "amount should be greater than 0");
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        IGwToken(token).bridgeBurn(msg.sender, amount);
         emit Locked(
             token,
             msg.sender,
