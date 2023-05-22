@@ -13,7 +13,8 @@ services:
         aliases:
           - mysql
   ckb:
-    image: tockb/ckb-dev:v0.100.0
+    image: tockb/ckb-dev:v0.110.0
+    build: ./ckb
     ports:
       - "8114:8114"
     networks:
@@ -22,7 +23,8 @@ services:
         aliases:
           - ckb
   ckb-indexer:
-    image: tockb/ckb-indexer:v0.3.0
+    image: tockb/ckb-indexer:v0.4.3
+    build: ./ckb-indexer
     ports:
       - "8116:8116"
     environment:

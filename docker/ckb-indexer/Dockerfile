@@ -4,7 +4,7 @@ WORKDIR /var/lib
 
 RUN git clone https://github.com/nervosnetwork/ckb-indexer.git
 
-RUN cd ckb-indexer && git checkout v0.3.0 && cargo build
+RUN cd ckb-indexer && git checkout v0.4.3 && cargo build
 
 FROM ubuntu:bionic
 
