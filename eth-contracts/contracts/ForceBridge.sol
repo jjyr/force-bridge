@@ -36,6 +36,12 @@ contract ForceBridge {
   uint256 public latestUnlockNonce_;
   uint256 public latestChangeValidatorsNonce_;
 
+  event CreateGwERC20(
+    address indexed token,
+    bytes indexed l1Address,
+    bytes tokenArgs
+  );
+
   event Locked(
     address indexed token,
     address indexed sender,
@@ -316,5 +322,6 @@ contract ForceBridge {
       type(StandardGwERC20).creationCode
     );
     StandardGwERC20(addr).bridgeInit(l1Address, tokenArgs);
+    emit CreateGwERC20(addr, l1Address, tokenArgs);
   }
 }
