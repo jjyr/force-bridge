@@ -29,7 +29,7 @@ contract geERC20 is ERC20PermitUpgradeable, TransferAndCallToken {
 
     uint8 private _decimals;
 
-    constructor() initializer {
+    constructor() {
         // this is expected to be used as the logic contract behind a proxy
         // override the constructor if you don't wish to use the initialize method
     }

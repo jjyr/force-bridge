@@ -22,7 +22,7 @@ describe('ForceBridge', () => {
   let abi, iface;
   let erc20Token, tokenAddress;
 
-  before(async function() {
+  before(async function () {
     // disable timeout
     this.timeout(0);
 
@@ -42,6 +42,10 @@ describe('ForceBridge', () => {
 
     forceBridge = await factory.deploy(validators, multisigThreshold);
     await forceBridge.deployTransaction.wait(1);
+    DOMAIN_SEPARATOR = await forceBridge.DOMAIN_SEPARATOR();
+    unlockTypeHash = keccak256(
+      toUtf8Bytes('unlock(UnlockRecord[] calldata records)')
+    );
 
     contractAddress = forceBridge.address;
     provider = forceBridge.provider;
@@ -51,18 +55,31 @@ describe('ForceBridge', () => {
     iface = new ethers.utils.Interface(abi);
 
     // deploy ERC20 token
-    const erc20Factory = await ethers.getContractFactory(
-      'contracts/test/ERC20.sol:DAI'
+    const l1Address = "0x0042";
+    const data = ethers.utils.defaultAbiCoder.encode(["string", "string", "uint8"], ['DAI', 'DAI', 18]);
+    const tx = await forceBridge.createGwERC20(l1Address, data);
+    const receipt = await tx.wait();
+    tokenAddress = '0x' + receipt.events[1].topics[1].slice(26);
+    const gwTokenFactory = await ethers.getContractFactory(
+      'contracts/token/token/StandardGwERC20.sol:StandardGwERC20'
     );
+    const dai = gwTokenFactory.connect(signer).attach(tokenAddress);
+    const tokenName = await dai.name();
+    if (tokenName != "DAI") {
+      throw ("wrong name", tokenName);
+    }
+    // const erc20Factory = await ethers.getContractFactory(
+    //   'contracts/test/ERC20.sol:DAI'
+    // );
 
-    erc20Token = await erc20Factory.deploy();
-    await erc20Token.deployTransaction.wait(1);
-    await erc20Token.approve(contractAddress, 100);
-    tokenAddress = erc20Token.address;
+    // erc20Token = await erc20Factory.deploy();
+    // await erc20Token.deployTransaction.wait(1);
+    // await erc20Token.approve(contractAddress, 100);
+    // tokenAddress = erc20Token.address;
     console.log('tokenAddress', tokenAddress);
   });
 
-  describe('correct case', async function() {
+  describe('correct case', async function () {
     // disable timeout
     this.timeout(0);
 
@@ -106,7 +123,7 @@ describe('ForceBridge', () => {
       );
       expect(await forceBridge.DOMAIN_SEPARATOR()).to.eq(DOMAIN_SEPARATOR);
     });
-    it('should work well for lock and unlock ETH', async function() {
+    it('should work well for lock and unlock ETH', async function () {
       // lock
       const recipientLockscript = '0x00';
       const sudtExtraData = '0x01';
@@ -177,29 +194,7 @@ describe('ForceBridge', () => {
       }
       expect(await forceBridge.latestUnlockNonce_()).to.equal(1);
     });
-    it('should work well for lock and unlock ERC20', async function() {
-      // lock
-      const recipientLockscript = '0x00';
-      const sudtExtraData = '0x01';
-      const amount = 2;
-      const res = await forceBridge.lockToken(
-        tokenAddress,
-        amount,
-        recipientLockscript,
-        sudtExtraData
-      );
-
-      const receipt = await waitingForReceipt(provider, res);
-
-      console.log(receipt);
-      console.dir(receipt, { depth: null });
-      const parsedLog = iface.parseLog(receipt.logs[2]);
-
-      expect(parsedLog.args.token).to.equal(tokenAddress);
-      expect(parsedLog.args.lockedAmount).to.equal(amount);
-      expect(parsedLog.args.sudtExtraData).to.equal(sudtExtraData);
-      expect(parsedLog.args.recipientLockscript).to.equal(recipientLockscript);
-
+    it('should work well for lock and unlock ERC20', async function () {
       // unlock
       const records = [
         {
@@ -213,6 +208,12 @@ describe('ForceBridge', () => {
           recipient: '0x1000000000000000000000000000000000000002',
           amount: 1,
           ckbTxHash: '0x1000000000000000000000000000000000000009'
+        },
+        {
+          token: tokenAddress,
+          recipient: adminAddress,
+          amount: 2,
+          ckbTxHash: '0x1000000000000000000000000000000000000010'
         }
       ];
 
@@ -238,12 +239,34 @@ describe('ForceBridge', () => {
         const res = iface.parseLog(receiptUnlock.logs[i]).args;
         const r = records[(i - 1) / 2];
         expect(r.recipient).to.equal(res.recipient);
-        expect(r.token).to.equal(res.token);
+        expect(r.token.toUpperCase()).to.equal(res.token.toUpperCase());
         expect(r.amount).to.equal(res.receivedAmount);
         expect(r.ckbTxHash).to.equal(res.ckbTxHash);
       }
+
+      // lock
+      const recipientLockscript = '0x00';
+      const sudtExtraData = '0x01';
+      const amount = 1;
+      const res = await forceBridge.lockToken(
+        tokenAddress,
+        amount,
+        recipientLockscript,
+        sudtExtraData
+      );
+
+      const receipt = await res.wait();
+
+      console.dir(receipt, { depth: null });
+      const parsedLog = receipt.events[1];
+
+      expect(parsedLog.args.token.toUpperCase()).to.equal(tokenAddress.toUpperCase());
+      expect(parsedLog.args.lockedAmount).to.equal(amount);
+      expect(parsedLog.args.sudtExtraData).to.equal(sudtExtraData);
+      expect(parsedLog.args.recipientLockscript).to.equal(recipientLockscript);
+
     });
-    it('should change validators', async function() {
+    it('should change validators', async function () {
       const newWallets = generateWallets(7);
       newValidators = newWallets.map(wallet => wallet.address);
       newMultisigThreshold = 6;
@@ -274,7 +297,7 @@ describe('ForceBridge', () => {
     });
   });
 
-  describe('abnormal case', async function() {
+  describe('abnormal case', async function () {
     // disable timeout
     this.timeout(0);
 
@@ -315,7 +338,7 @@ describe('ForceBridge', () => {
         )
       ).to.be.true;
     });
-    it('should not change validators when validators are repeated', async function() {
+    it('should not change validators when validators are repeated', async function () {
       const newWallets = generateWallets(7);
       newValidators = newWallets.map(wallet => wallet.address);
       newValidators[6] = newValidators[1];
@@ -345,7 +368,7 @@ describe('ForceBridge', () => {
         )
       ).to.be.true;
     });
-    it('should not unlock when nonce used', async function() {
+    it('should not unlock when nonce used', async function () {
       // unlock
       const records = [
         {
@@ -384,7 +407,7 @@ describe('ForceBridge', () => {
         )
       ).to.be.true;
     });
-    it('should not unlock when nonce is not continuous', async function() {
+    it('should not unlock when nonce is not continuous', async function () {
       // unlock
       const records = [
         {
@@ -423,7 +446,7 @@ describe('ForceBridge', () => {
         )
       ).to.be.true;
     });
-    it('should not change validators when nonce used', async function() {
+    it('should not change validators when nonce used', async function () {
       const newWallets = generateWallets(7);
       newValidators = newWallets.map(wallet => wallet.address);
       newValidators[6] = newValidators[1];

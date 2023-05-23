@@ -41,10 +41,17 @@ contract StandardGwERC20 is IGwToken, L2GatewayToken, Cloneable {
      * @param _data encoded symbol/name/decimal data for initial deploy
      */
     function bridgeInit(bytes memory _l1Address, bytes memory _data) public virtual {
-        (bytes memory name_, bytes memory symbol_, bytes memory decimals_) = abi.decode(
+        // (bytes memory name_, bytes memory symbol_, bytes memory decimals_) = abi.decode(
+        //     _data,
+        //     (bytes, bytes, bytes)
+        // );
+        (string memory parsedName, string memory parsedSymbol, uint8 parsedDecimals) = abi.decode(
             _data,
-            (bytes, bytes, bytes)
+            (string, string, uint8)
         );
+        bool parseNameSuccess = true;
+        bool parseSymbolSuccess = true;
+        bool parseDecimalSuccess = true;
         // what if decode reverts? shouldn't as this is encoded by L1 contract
 
         /*
@@ -56,9 +63,10 @@ contract StandardGwERC20 is IGwToken, L2GatewayToken, Cloneable {
          *  https://github.com/ethereum/solidity/issues/10381
          */
 
-        (bool parseNameSuccess, string memory parsedName) = BytesParser.toString(name_);
-        (bool parseSymbolSuccess, string memory parsedSymbol) = BytesParser.toString(symbol_);
-        (bool parseDecimalSuccess, uint8 parsedDecimals) = BytesParser.toUint8(decimals_);
+        // (bool parseNameSuccess, string memory parsedName) = BytesParser.toString(name_);
+        // (bool parseSymbolSuccess, string memory parsedSymbol) = BytesParser.toString(symbol_);
+        // (bool parseDecimalSuccess, uint8 parsedDecimals) = BytesParser.toUint8(decimals_);
+
 
         L2GatewayToken._initialize(
             parsedName,
