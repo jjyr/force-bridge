@@ -38,8 +38,7 @@ contract ForceBridge {
 
   event CreateGwERC20(
     address indexed token,
-    bytes indexed l1Address,
-    bytes tokenArgs
+    bytes l1Address
   );
 
   event Locked(
@@ -322,6 +321,6 @@ contract ForceBridge {
       type(StandardGwERC20).creationCode
     );
     StandardGwERC20(addr).bridgeInit(l1Address, tokenArgs);
-    emit CreateGwERC20(addr, l1Address, tokenArgs);
+    emit CreateGwERC20(addr, l1Address);
   }
 }
