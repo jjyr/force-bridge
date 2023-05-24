@@ -13,6 +13,7 @@ export type NetworkSymbol = 'eth' | 'bsc';
 
 export interface Token {
   address: string;
+  sudtArgs: string;
   name: string;
   symbol: string;
   logoURI: string;
@@ -95,15 +96,14 @@ async function generateWhiteList(inPath: string, outPath: string, network: Netwo
 
     const assetInfo: WhiteListEthAsset = {
       ...token,
+      sudtArgs: token.sudtArgs,
       minimalBridgeAmount: getClosestNumber(minimalBridgeAmount),
       bridgeFee: { in: getClosestNumber(inAmount), out: getClosestNumber(outAmount) },
     };
     assetWhiteList.push(assetInfo);
-    console.log(`info: ${JSON.stringify(assetInfo)}, price: ${price}`);
     const networkSymbol: NetworkSymbol = network === 'Ethereum' ? 'eth' : 'bsc';
     const bridge = 'ForceBridge';
-    const sudtArgs = addressToSudtArgs(token.address, network);
-    const sudtTypeHash = computeSudtTypeHash(sudtArgs);
+    const sudtTypeHash = computeSudtTypeHash(token.sudtArgs);
     const ckbExplorerUrl = `https://explorer.nervos.org/sudt/${sudtTypeHash}`;
     const symbol = `${token.symbol}|${networkSymbol}`;
     const extendAssetInfo: WhiteListPublic = {
@@ -112,7 +112,7 @@ async function generateWhiteList(inPath: string, outPath: string, network: Netwo
       name: `Wrapped ${token.symbol} (${bridge} from ${network})`,
       decimal: token.decimal,
       logoURI: token.logoURI,
-      sudtArgs,
+      sudtArgs: token.sudtArgs,
       source: network,
       bridge,
       ckbExplorerUrl,
@@ -124,7 +124,7 @@ async function generateWhiteList(inPath: string, outPath: string, network: Netwo
   return assetWhitePublicList;
 }
 
-function addressToSudtArgs(address: string, network: Network): string {
+function _addressToSudtArgs(address: string, network: Network): string {
   // mainnet config
   let args = '0x';
   switch (network) {

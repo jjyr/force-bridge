@@ -11,7 +11,7 @@ import * as shelljs from 'shelljs';
 import { execShellCmd, pathFromProjectRoot } from './utils';
 import { deployDev } from './utils/deploy';
 import { deployDevSUDT } from './utils/deploySUDT';
-import { ethBatchTest } from './utils/eth_batch_test';
+import { ethBatchTest, initBridge } from './utils/eth_batch_test';
 import { genRandomVerifierConfig } from './utils/generate';
 import { rpcTest } from './utils/rpc-ci';
 
@@ -276,7 +276,7 @@ async function startChangeVal(
   await asyncSleep(5000);
 }
 
-async function _main() {
+async function main() {
   initLog({ level: 'debug', identity: 'integration' });
   logger.info('start integration test');
 
@@ -300,6 +300,10 @@ async function _main() {
   const offchainModulePath = pathFromProjectRoot('offchain-modules');
   const tsnodePath = path.join(offchainModulePath, 'node_modules/.bin/ts-node');
   const forcecli = `${tsnodePath} ${offchainModulePath}/packages/app-cli/src/index.ts`;
+
+  // Simple UDT
+  const OWNER_PRIVATE_KEY = '0xa800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1ff';
+  const DEPLOYER_PRIVATE_KEY = '0xa800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1fd';
 
   const initConfig = {
     common: {
@@ -349,6 +353,32 @@ async function _main() {
       path.join(configPath, 'deployConfig.json'),
     );
 
+  // deploy SUDT on CKB
+  const sudtArgs = await deployDevSUDT(
+    CKB_RPC_URL,
+    DEPLOYER_PRIVATE_KEY,
+    OWNER_PRIVATE_KEY,
+    CKB_PRIVATE_KEY,
+    CKB_INDEXER_URL,
+  );
+  // init bridge on eth
+  logger.info('InitBridgeToken');
+  const tokenAddress = await initBridge(ETH_RPC_URL, ETH_TEST_PRIVKEY, sudtArgs, bridgeEthAddress);
+  logger.info('InitBridgeToken done');
+  assetWhiteList.push({
+    sudtArgs,
+    address: tokenAddress,
+    name: 'USDT',
+    symbol: 'USDT',
+    decimal: 18,
+    logoURI: 'https://s2.coinmarketcap.com/static/img/coins/64x64/825.png',
+    minimalBridgeAmount: '10000000000000',
+    bridgeFee: {
+      in: '1000000000000',
+      out: '2000000000000',
+    },
+  });
+
   const extraMultiSigConfig = {
     threshold: EXTRA_MULTISIG_NUMBER,
     verifiers: lodash.range(EXTRA_MULTISIG_NUMBER).map((_i) => genRandomVerifierConfig()),
@@ -388,6 +418,10 @@ async function _main() {
     CKB_INDEXER_URL,
     FORCE_BRIDGE_URL,
     3,
+    tokenAddress,
+    undefined,
+    undefined,
+    false,
   );
   await rpcTest(FORCE_BRIDGE_URL, CKB_RPC_URL, ETH_RPC_URL, CKB_TEST_PRIVKEY, ETH_TEST_PRIVKEY, bridgeEthAddress);
   logger.info('integration test pass!');
@@ -416,32 +450,16 @@ async function _main() {
     CKB_INDEXER_URL,
     FORCE_BRIDGE_URL,
     3,
+    tokenAddress,
+    undefined,
+    undefined,
+    false,
   );
   await rpcTest(FORCE_BRIDGE_URL, CKB_RPC_URL, ETH_RPC_URL, CKB_TEST_PRIVKEY, ETH_TEST_PRIVKEY, bridgeEthAddress);
   logger.info('change validator test pass!');
 }
 
-async function main2() {
-  const CKB_PRIVATE_KEY = '0xa800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1fe';
-  const OWNER_PRIVATE_KEY = '0xa800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1ff';
-  // // used for test
-  // const ETH_TEST_PRIVKEY = '0x719e94ec5d2ecef67b5878503ffd6e1e0e2fe7a52ddd55c436878cb4d52d376d';
-  // const CKB_TEST_PRIVKEY = '0xa6b8e0cbadda5c0d91cf82d1e8d8120b755aa06bc49030ca6e8392458c65fc80';
-
-  // const MULTISIG_NUMBER = 2;
-  // const MULTISIG_THRESHOLD = 2;
-  // const EXTRA_MULTISIG_NUMBER = 3;
-  // const FORCE_BRIDGE_KEYSTORE_PASSWORD = '123456';
-  // const ETH_RPC_URL = 'http://127.0.0.1:8545';
-  const CKB_RPC_URL = 'http://127.0.0.1:8114';
-  const CKB_INDEXER_URL = 'http://127.0.0.1:8116';
-
-  initLog({ level: 'debug', identity: 'integration-erc20' });
-
-  await deployDevSUDT(CKB_RPC_URL, OWNER_PRIVATE_KEY, CKB_PRIVATE_KEY, CKB_INDEXER_URL);
-}
-
-main2()
+main()
   .then(() => process.exit(0))
   .catch((error) => {
     logger.error(`integration test failed, error: ${error.stack}`);

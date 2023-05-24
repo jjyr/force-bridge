@@ -143,6 +143,7 @@ export interface promConfig {
 
 export interface WhiteListEthAsset {
   address: string;
+  sudtArgs: string;
   name: string;
   symbol: string;
   logoURI: string;

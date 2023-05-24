@@ -37,7 +37,9 @@ export async function bootstrap(configPath: string | Config): Promise<void> {
   } else {
     config = configPath;
   }
+  console.log('init');
   await new ForceBridgeCore().init(config);
+  console.log('init done');
 }
 
 export class XChainHandlers {
@@ -97,10 +99,9 @@ export class ForceBridgeCore {
   }
 
   async init(config: Config): Promise<ForceBridgeCore> {
-    checkConfigEthereumAddress(config);
-
     // init log
     initLog(config.common.log);
+    checkConfigEthereumAddress(config);
 
     // set server port
     if (config.common.port) {
@@ -134,8 +135,9 @@ export class ForceBridgeCore {
 function checkConfigEthereumAddress(config: Config) {
   const verifyChecksumAddress = (addresses: string[]) => {
     addresses.forEach((address) => {
-      if (ethers.utils.getAddress(address) !== address)
-        throw new Error(`${address} is not a ethereum checksum address`);
+      const res = ethers.utils.getAddress(address);
+      if (res.toUpperCase() !== address.toUpperCase())
+        throw new Error(`${address}(result ${res}) is not a ethereum checksum address`);
     });
   };
 

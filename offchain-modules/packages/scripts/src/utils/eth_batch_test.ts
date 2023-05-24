@@ -5,12 +5,14 @@ import { CkbIndexer } from '@force-bridge/x/dist/ckb/tx-helper/indexer';
 import { asserts } from '@force-bridge/x/dist/errors';
 import { asyncSleep } from '@force-bridge/x/dist/utils';
 import { logger } from '@force-bridge/x/dist/utils/logger';
+import ForceBridge from '@force-bridge/x/src/xchain/eth/abi/ForceBridge.json';
 import { Script } from '@lay2/pw-core';
 import CKB from '@nervosnetwork/ckb-sdk-core';
 import { AddressPrefix } from '@nervosnetwork/ckb-sdk-utils';
 import { ethers } from 'ethers';
 import { JSONRPCClient } from 'json-rpc-2.0';
 import fetch from 'node-fetch/index';
+import { waitUntilCommitted } from '.';
 
 export async function generateLockTx(
   client: JSONRPCClient,
@@ -229,6 +231,7 @@ export async function prepareCkbAddresses(
   ckbPrivateKey: string,
   ckbNodeUrl: string,
   ckbIndexerUrl: string,
+  initCKB = 600,
 ): Promise<Array<string>> {
   const batchNum = ckbPrivateKey.length;
   const { secp256k1Dep } = await ckb.loadDeps();
@@ -248,7 +251,7 @@ export async function prepareCkbAddresses(
     hash_type: secp256k1Dep.hashType,
   };
   asserts(fromLockscript);
-  const needSupplyCap = batchNum * 600 * 100000000 + 100000;
+  const needSupplyCap = batchNum * initCKB * 100000000 + 100000;
   const collector = new IndexerCollector(new CkbIndexer(ckbNodeUrl, ckbIndexerUrl));
 
   const needSupplyCapCells = await collector.getCellsByLockscriptAndCapacity(fromLockscript, BigInt(needSupplyCap));
@@ -270,7 +273,7 @@ export async function prepareCkbAddresses(
       args: toArgs,
       hash_type: secp256k1Dep.hashType,
     });
-    const capacity = 600 * 100000000;
+    const capacity = initCKB * 100000000;
     const toScriptCell = {
       lock: toScript,
       capacity: `0x${capacity.toString(16)}`,
@@ -304,6 +307,7 @@ export async function prepareCkbAddresses(
 
   const burnTxHash = await ckb.rpc.sendTransaction(signedTx, 'passthrough');
   logger.info('tx', burnTxHash);
+  await waitUntilCommitted(ckb, burnTxHash, 60 * 1000);
   return addresses;
 }
 
@@ -341,6 +345,7 @@ export async function ethBatchTest(
   ethTokenAddress = '0x0000000000000000000000000000000000000000',
   lockAmount = '2000000000000000',
   burnAmount = '1000000000000000',
+  fromEthSide = true,
 ): Promise<void> {
   logger.info('ethBatchTest start!');
   const ckb = new CKB(ckbNodeUrl);
@@ -370,10 +375,45 @@ export async function ethBatchTest(
   const ckbPrivs = await prepareCkbPrivateKeys(batchNum);
   const ckbAddresses = await prepareCkbAddresses(ckb, ckbPrivs, ckbPrivateKey, ckbNodeUrl, ckbIndexerUrl);
 
-  const lockTxs = await lock(client, provider, ethWallet, ckbAddresses, ethTokenAddress, lockAmount, ethNodeUrl);
-  await check(client, lockTxs, ckbAddresses, batchNum, ethTokenAddress);
+  if (fromEthSide) {
+    logger.info('from eth side');
+    const lockTxs = await lock(client, provider, ethWallet, ckbAddresses, ethTokenAddress, lockAmount, ethNodeUrl);
+    await check(client, lockTxs, ckbAddresses, batchNum, ethTokenAddress);
 
-  const burnTxs = await burn(ckb, client, ckbPrivs, ckbAddresses, ethAddress, ethTokenAddress, burnAmount);
-  await check(client, burnTxs, ckbAddresses, batchNum, ethTokenAddress);
+    const burnTxs = await burn(ckb, client, ckbPrivs, ckbAddresses, ethAddress, ethTokenAddress, burnAmount);
+    await check(client, burnTxs, ckbAddresses, batchNum, ethTokenAddress);
+  } else {
+    logger.info('from ckb side');
+    const burnTxs = await burn(ckb, client, ckbPrivs, ckbAddresses, ethAddress, ethTokenAddress, burnAmount);
+    await check(client, burnTxs, ckbAddresses, batchNum, ethTokenAddress);
+
+    const lockTxs = await lock(client, provider, ethWallet, ckbAddresses, ethTokenAddress, lockAmount, ethNodeUrl);
+    await check(client, lockTxs, ckbAddresses, batchNum, ethTokenAddress);
+  }
   logger.info('ethBatchTest pass!');
+}
+
+export async function initBridge(
+  ethNodeUrl: string,
+  ethPrivateKey: string,
+  sudtId: string,
+  forceBridgeAddress: string,
+): Promise<string> {
+  const provider = new ethers.providers.JsonRpcProvider(ethNodeUrl);
+  const ethWallet = new ethers.Wallet(ethPrivateKey, provider);
+  const contract = new ethers.Contract(forceBridgeAddress, ForceBridge.abi, ethWallet);
+  const data = ethers.utils.defaultAbiCoder.encode(['string', 'string', 'uint8'], ['USDT', 'USDT', 18]);
+  const nonce = await ethWallet.getTransactionCount();
+  // append nonce to sudtId to avoid confliction during test
+  sudtId += nonce.toString(16).padStart(2, '0');
+  logger.info(`sudtId: ${sudtId} data: ${data}`);
+  const tx = await contract.createGwERC20(sudtId, data);
+  const receipt = await tx.wait();
+  logger.info('initBridge receipt:', receipt);
+  const event = receipt.events.find(
+    (event) => event.address.toUpperCase() == forceBridgeAddress.toUpperCase() && event.event === 'CreateGwERC20',
+  );
+  const tokenAddress = '0x' + event.topics[1].slice(26);
+  logger.info(`initBridge tx_hash: ${receipt.transactionHash} token: ${tokenAddress}`);
+  return tokenAddress;
 }
