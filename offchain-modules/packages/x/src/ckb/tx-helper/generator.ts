@@ -315,19 +315,18 @@ export class CkbTxGenerator extends CkbTxHelper {
       throw new Error('amount should larger then zero!');
     }
     // get sudt cells
-    const bridgeCellLockscript = {
-      code_hash: ForceBridgeCore.config.ckb.deps.bridgeLock.script.codeHash,
-      hash_type: ForceBridgeCore.config.ckb.deps.bridgeLock.script.hashType,
-      args: asset.toBridgeLockscriptArgs(),
-    };
-    const args = utils.computeScriptHash(bridgeCellLockscript);
+    // const bridgeCellLockscript = {
+    //   code_hash: ForceBridgeCore.config.ckb.deps.bridgeLock.script.codeHash,
+    //   hash_type: ForceBridgeCore.config.ckb.deps.bridgeLock.script.hashType,
+    //   args: asset.toBridgeLockscriptArgs(),
+    // };
     const searchKey = {
       script: fromLockscript,
       script_type: ScriptType.lock,
       filter: {
         script: {
           code_hash: ForceBridgeCore.config.ckb.deps.sudtType.script.codeHash,
-          args,
+          args: asset.getSUDTArgs(),
           hash_type: ForceBridgeCore.config.ckb.deps.sudtType.script.hashType,
         },
       },

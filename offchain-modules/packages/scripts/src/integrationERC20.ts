@@ -6,11 +6,12 @@ import { OwnerCellConfig } from '@force-bridge/x/dist/ckb/tx-helper/deploy';
 import { Config, WhiteListEthAsset, CkbDeps } from '@force-bridge/x/dist/config';
 import { asyncSleep, privateKeyToCkbPubkeyHash, writeJsonToFile } from '@force-bridge/x/dist/utils';
 import { logger, initLog } from '@force-bridge/x/dist/utils/logger';
+import { scriptToHash } from '@nervosnetwork/ckb-sdk-utils';
 import * as lodash from 'lodash';
 import * as shelljs from 'shelljs';
 import { execShellCmd, pathFromProjectRoot } from './utils';
 import { deployDev } from './utils/deploy';
-import { deployDevSUDT } from './utils/deploySUDT';
+import { issueDevSUDT } from './utils/deploySUDT';
 import { ethBatchTest, initBridge } from './utils/eth_batch_test';
 import { genRandomVerifierConfig } from './utils/generate';
 import { rpcTest } from './utils/rpc-ci';
@@ -303,7 +304,6 @@ async function main() {
 
   // Simple UDT
   const OWNER_PRIVATE_KEY = '0xa800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1ff';
-  const DEPLOYER_PRIVATE_KEY = '0xa800c82df5461756ae99b5c6677d019c98cc98c7786b80d7b2e77256e46ea1fd';
 
   const initConfig = {
     common: {
@@ -354,16 +354,12 @@ async function main() {
     );
 
   // deploy SUDT on CKB
-  const sudtArgs = await deployDevSUDT(
-    CKB_RPC_URL,
-    DEPLOYER_PRIVATE_KEY,
-    OWNER_PRIVATE_KEY,
-    CKB_PRIVATE_KEY,
-    CKB_INDEXER_URL,
-  );
+  const sudtScript = await issueDevSUDT(CKB_RPC_URL, OWNER_PRIVATE_KEY, CKB_PRIVATE_KEY, CKB_INDEXER_URL, ckbDeps);
+  const sudtArgs = sudtScript.args;
+  const sudtScriptHash = scriptToHash(sudtScript);
   // init bridge on eth
   logger.info('InitBridgeToken');
-  const tokenAddress = await initBridge(ETH_RPC_URL, ETH_TEST_PRIVKEY, sudtArgs, bridgeEthAddress);
+  const tokenAddress = await initBridge(ETH_RPC_URL, ETH_TEST_PRIVKEY, sudtScriptHash, bridgeEthAddress);
   logger.info('InitBridgeToken done');
   assetWhiteList.push({
     sudtArgs,

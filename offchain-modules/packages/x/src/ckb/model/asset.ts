@@ -117,6 +117,7 @@ export abstract class Asset {
   }
   public abstract toBridgeLockscriptArgs(): string;
   public abstract getAddress(): string;
+  public abstract getSUDTArgs(): string;
 }
 
 export function getAsset(chain: number, asset: string): Asset {
@@ -159,7 +160,7 @@ export class EthAsset extends Asset {
     return this.address;
   }
 
-  getSUDTScriptHash(): string {
+  getSUDTArgs(): string {
     return this.sudtArgs;
   }
 }
@@ -182,6 +183,10 @@ export class TronAsset extends Asset {
   getAddress(): string {
     return this.address;
   }
+
+  getSUDTArgs(): string {
+    return '0x';
+  }
 }
 
 export class EosAsset extends Asset {
@@ -202,6 +207,10 @@ export class EosAsset extends Asset {
   getAddress(): string {
     return this.address;
   }
+
+  getSUDTArgs(): string {
+    return '0x';
+  }
 }
 
 export class BtcAsset extends Asset {
@@ -221,5 +230,9 @@ export class BtcAsset extends Asset {
 
   getAddress(): string {
     return this.address;
+  }
+
+  getSUDTArgs(): string {
+    return '0x';
   }
 }
