@@ -6,9 +6,13 @@ members = [
     "contracts-helper",
     "lib/bridge-lockscript-lib",
     "lib/recipient-typescript-lib",
-]
-
-exclude = [
     "contracts/bridge-lockscript",
     "contracts/recipient-typescript",
 ]
+
+[profile.release]
+overflow-checks = true
+opt-level = 's'
+lto = true
+codegen-units = 1
+panic = 'abort'

@@ -354,7 +354,7 @@ async function main() {
     );
 
   // deploy SUDT on CKB
-  const sudtScript = await issueDevSUDT(CKB_RPC_URL, OWNER_PRIVATE_KEY, CKB_PRIVATE_KEY, CKB_INDEXER_URL, ckbDeps);
+  const sudtScript = await issueDevSUDT(CKB_RPC_URL, OWNER_PRIVATE_KEY, CKB_PRIVATE_KEY, CKB_INDEXER_URL, ckbDeps, []);
   const sudtArgs = sudtScript.args;
   const sudtScriptHash = scriptToHash(sudtScript);
   // init bridge on eth
@@ -418,6 +418,8 @@ async function main() {
     undefined,
     undefined,
     false,
+    OWNER_PRIVATE_KEY,
+    ckbDeps,
   );
   await rpcTest(FORCE_BRIDGE_URL, CKB_RPC_URL, ETH_RPC_URL, CKB_TEST_PRIVKEY, ETH_TEST_PRIVKEY, bridgeEthAddress);
   logger.info('integration test pass!');
@@ -450,6 +452,8 @@ async function main() {
     undefined,
     undefined,
     false,
+    OWNER_PRIVATE_KEY,
+    ckbDeps,
   );
   await rpcTest(FORCE_BRIDGE_URL, CKB_RPC_URL, ETH_RPC_URL, CKB_TEST_PRIVKEY, ETH_TEST_PRIVKEY, bridgeEthAddress);
   logger.info('change validator test pass!');

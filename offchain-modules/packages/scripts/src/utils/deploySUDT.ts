@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { OwnerCellConfig } from '@force-bridge/x/dist/ckb/tx-helper/deploy';
 import { CkbDeps, WhiteListEthAsset } from '@force-bridge/x/dist/config';
+import { asyncSleep } from '@force-bridge/x/dist/utils';
 import { logger } from '@force-bridge/x/dist/utils/logger';
 import CKB from '@nervosnetwork/ckb-sdk-core';
 import { mkdir } from 'shelljs';
@@ -29,6 +30,7 @@ export async function issueDevSUDT(
   ckbPrivateKey: string,
   CKB_INDEXER_URL: string,
   ckbDeps: CkbDeps,
+  addresses: string[],
 ): Promise<CKBComponents.Script> {
   // prepare address
   const ckb = new CKB(CKB_RPC_URL);
@@ -60,7 +62,10 @@ export async function issueDevSUDT(
           code_hash: ckbDeps.sudtType.script.codeHash,
         },
         cell_dep: {
-          out_point: ckbDeps.sudtType.cellDep.outPoint,
+          out_point: {
+            tx_hash: ckbDeps.sudtType.cellDep.outPoint.txHash,
+            index: ckbDeps.sudtType.cellDep.outPoint.index,
+          },
           dep_type: ckbDeps.sudtType.cellDep.depType,
         },
       },
@@ -75,9 +80,18 @@ export async function issueDevSUDT(
   // --udt-to ckt1qyqfjslcvyaay029vvfxtn80rxnwmlma43xscrqn85:2000 \
   // --to-cheque-address \
   // --cell-deps ./cell_deps.json
-  const amount = 100000000;
-  const ckbCliSUDTCommand = `cd ${deployPath} && ckb-cli sudt issue --privkey-path ${ownerPrivKeyPath} --owner ${ownerAddress} --udt-to ${ownerAddress}:${amount} --cell-deps ${cellDepsJsonPath}`;
-  await execShellCmd(ckbCliSUDTCommand);
+  const amount = 3000000000000000;
+  for (const address of addresses) {
+    const ckbCliSUDTCommand = `cd ${deployPath} && ckb-cli sudt issue --privkey-path ${ownerPrivKeyPath} --owner ${ownerAddress} --udt-to ${address}:${amount} --cell-deps ${cellDepsJsonPath}`;
+    await execShellCmd(ckbCliSUDTCommand);
+
+    const targetTip = parseInt((await ckb.rpc.getTipBlockNumber()).substring(2), 16) + 5;
+    logger.info(`wait for target tip: ${targetTip}`);
+    await asyncSleep(1000);
+    while (parseInt((await ckb.rpc.getTipBlockNumber()).substring(2), 16) < targetTip) {
+      await asyncSleep(1000);
+    }
+  }
 
   const sudtArgs = ckb.utils.scriptToHash(script);
   const sudtScript: CKBComponents.Script = {
@@ -86,8 +100,6 @@ export async function issueDevSUDT(
     args: sudtArgs,
   };
 
-  logger.info('sudtArgs:', sudtArgs);
-
-  // write sudtID to file
+  logger.info(`sudtArgs: ${sudtArgs}`);
   return sudtScript;
 }

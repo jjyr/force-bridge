@@ -73,6 +73,12 @@ export async function waitUntilCommitted(
     if (txStatus != undefined) {
       logger.debug(`tx ${txHash} status: ${txStatus.txStatus.status}, index: ${waitTime}`);
       if (txStatus.txStatus.status === 'committed') {
+        // wait another two blocks to make sure the tx is committed
+        const targetTip = parseInt((await ckb.rpc.getTipBlockNumber()).substring(2), 16) + 2;
+        await asyncSleep(1000);
+        while (parseInt((await ckb.rpc.getTipBlockNumber()).substring(2), 16) < targetTip) {
+          await asyncSleep(1000);
+        }
         return txStatus;
       }
       await asyncSleep(1000);

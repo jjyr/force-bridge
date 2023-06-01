@@ -22,17 +22,10 @@ pub fn verify_burn_token<T: Adapter>(data_loader: T, data: RecipientDataView) {
             data.amount
         )
     }
-    let force_bridge_lock_hash = calc_xchain_bridge_lock_hash(
-        &data.owner_cell_type_hash,
-        data.chain,
-        data.asset,
-        &data.bridge_lock_code_hash,
-        data.bridge_lock_hash_type,
-    );
     let input_sudt_num =
-        data_loader.get_sudt_amount_from_source(Source::Input, &force_bridge_lock_hash);
+        data_loader.get_sudt_amount_from_source(Source::Input, None);
     let output_sudt_num =
-        data_loader.get_sudt_amount_from_source(Source::Output, &force_bridge_lock_hash);
+        data_loader.get_sudt_amount_from_source(Source::Output, None);
     if input_sudt_num < output_sudt_num {
         panic!(
             "input sudt less than output sudt, input {:?}, output {:?}",

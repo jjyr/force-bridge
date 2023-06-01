@@ -18,7 +18,7 @@ use std::prelude::v1::*;
 pub trait Adapter {
     fn load_output_data(&self) -> Option<RecipientDataView>;
 
-    fn get_sudt_amount_from_source(&self, source: Source, lock_hash: &[u8]) -> u128;
+    fn get_sudt_amount_from_source(&self, source: Source, lock_hash: Option<&[u8]>) -> u128;
 }
 pub struct ChainAdapter<T: DataLoader> {
     pub chain: T,
@@ -44,7 +44,11 @@ where
         }
     }
 
-    fn get_sudt_amount_from_source(&self, source: Source, force_bridge_lock_hash: &[u8]) -> u128 {
+    fn get_sudt_amount_from_source(
+        &self,
+        source: Source,
+        force_bridge_lock_hash: Option<&[u8]>,
+    ) -> u128 {
         let mut index = 0;
         let mut sudt_sum = 0;
         loop {
@@ -76,16 +80,19 @@ where
     }
 }
 
-fn is_sudt_typescript(script: Option<Script>, lock_hash: &[u8]) -> bool {
+fn is_sudt_typescript(script: Option<Script>, lock_hash: Option<&[u8]>) -> bool {
     if script.is_none() {
         return false;
     }
     let script = script.unwrap();
     if script.code_hash().raw_data().as_ref() == SUDT_CODE_HASH.as_ref()
-        && script.args().raw_data().as_ref() == lock_hash
         && script.hash_type() == SUDT_HASH_TYPE.into()
     {
-        return true;
+        match lock_hash {
+            Some(lock_hash) => script.args().raw_data().as_ref() == lock_hash,
+            None => script.args().raw_data().len() == 32,
+        }
+    } else {
+        false
     }
-    false
 }

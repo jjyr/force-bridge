@@ -334,7 +334,11 @@ export class CkbTxGenerator extends CkbTxHelper {
     const sudtCells = await this.collector.collectSudtByAmount(searchKey, amount);
     const total = sudtCells.map((cell) => utils.readBigUInt128LE(cell.data)).reduce((a, b) => a + b, 0n);
     if (total < amount) {
-      logger.info(`total sudt amount: ${total}, need amount: ${amount} searchKey: ${JSON.stringify(searchKey)}`);
+      logger.info(
+        `cells: ${sudtCells.length} total sudt amount: ${total}, need amount: ${amount} searchKey: ${JSON.stringify(
+          searchKey,
+        )}`,
+      );
       throw new Error('sudt amount is not enough!');
     }
     logger.debug('burn sudtCells: ', sudtCells);

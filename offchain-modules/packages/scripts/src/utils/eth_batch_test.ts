@@ -1,18 +1,22 @@
+import fs from 'fs';
 import { encodeToAddress, objectToTransactionSkeleton, parseAddress } from '@ckb-lumos/helpers';
 import { IndexerCollector } from '@force-bridge/x/dist/ckb/tx-helper/collector';
 import { txSkeletonToRawTransactionToSign } from '@force-bridge/x/dist/ckb/tx-helper/generator';
 import { CkbIndexer } from '@force-bridge/x/dist/ckb/tx-helper/indexer';
+import { CkbDeps } from '@force-bridge/x/dist/config';
 import { asserts } from '@force-bridge/x/dist/errors';
 import { asyncSleep } from '@force-bridge/x/dist/utils';
 import { logger } from '@force-bridge/x/dist/utils/logger';
 import ForceBridge from '@force-bridge/x/src/xchain/eth/abi/ForceBridge.json';
 import { Script } from '@lay2/pw-core';
 import CKB from '@nervosnetwork/ckb-sdk-core';
-import { AddressPrefix } from '@nervosnetwork/ckb-sdk-utils';
+import { AddressPrefix, hexToBytes, bytesToHex } from '@nervosnetwork/ckb-sdk-utils';
 import { ethers } from 'ethers';
 import { JSONRPCClient } from 'json-rpc-2.0';
 import fetch from 'node-fetch/index';
-import { waitUntilCommitted } from '.';
+import { mkdir } from 'shelljs';
+import { issueDevSUDT } from './deploySUDT';
+import { pathFromProjectRoot, waitUntilCommitted } from '.';
 
 export async function generateLockTx(
   client: JSONRPCClient,
@@ -177,6 +181,165 @@ export async function lock(
   return lockTxHashes;
 }
 
+export async function dump_mock_tx(ckb: CKB, name: string, tx: any): Promise<void> {
+  logger.info(`dump ${name} tx ${JSON.stringify(tx)}`);
+  const mock_info: { inputs: any[]; cell_deps: any[]; header_deps: any[] } = {
+    inputs: [],
+    cell_deps: [],
+    header_deps: [],
+  };
+  for (const input of tx['inputs']) {
+    const inputTxWithStatus = await ckb.rpc.getTransaction(input['previousOutput']['txHash']);
+    const blockHash = inputTxWithStatus.txStatus.blockHash;
+    const { cell, status: _status } = await ckb.rpc.getLiveCell(input['previousOutput'], true);
+    const mock_input = {
+      input: {
+        since: input['since'] ?? '0x0',
+        previous_output: {
+          index: input['previousOutput']['index'],
+          tx_hash: input['previousOutput']['txHash'],
+        },
+      },
+      output: {
+        capacity: cell.output.capacity,
+        lock: {
+          code_hash: cell.output.lock.codeHash,
+          hash_type: cell.output.lock.hashType,
+          args: cell.output.lock.args,
+        },
+        type: cell.output.type
+          ? {
+              code_hash: cell.output.type?.codeHash,
+              hash_type: cell.output.type?.hashType,
+              args: cell.output.type?.args,
+            }
+          : null,
+      },
+      data: cell.data?.content ?? '0x',
+      header: blockHash,
+    };
+    mock_info['inputs'].push(mock_input);
+  }
+  const deps: any[] = [];
+
+  // parse dep group
+  for (const dep of tx['cellDeps']) {
+    if (dep['depType'] == 'depGroup') {
+      const { cell, status: _status } = await ckb.rpc.getLiveCell(dep['outPoint'], true);
+      const data = cell.data?.content ?? '0x';
+      const rawData = hexToBytes(data);
+      const outPointsCount = ((): number => {
+        const buffer = rawData.slice(0, 4);
+        return new DataView(buffer.buffer).getUint32(0, true /* littleEndian */);
+      })();
+      logger.info(`outPointsCount ${outPointsCount}`);
+      for (let i = 0; i < outPointsCount; i++) {
+        const rawOutPoint = rawData.slice(4 + i * 36, 4 + (i + 1) * 36);
+        const dep = {
+          out_point: {
+            tx_hash: bytesToHex(rawOutPoint.slice(0, 32)),
+            index: '0x' + new DataView(rawOutPoint.slice(32, 36).buffer).getUint32(0, true).toString(16),
+          },
+          dep_type: 'code',
+        };
+        logger.info(`parsed group dep ${JSON.stringify(dep)}`);
+        deps.push(dep);
+      }
+    }
+    const depCell = {
+      out_point: {
+        tx_hash: dep['outPoint']['txHash'],
+        index: dep['outPoint']['index'],
+      },
+      dep_type: dep['depType'] == 'code' ? 'code' : 'dep_group',
+    };
+    deps.push(depCell);
+  }
+
+  for (const cellDep of deps) {
+    const { cell, status: _status } = await ckb.rpc.getLiveCell(
+      {
+        txHash: cellDep.out_point.tx_hash,
+        index: cellDep.out_point.index,
+      },
+      true,
+    );
+    const txWithStatus = ckb.rpc.getTransaction(cellDep.out_point.tx_hash);
+    const mock_cellDep = {
+      cell_dep: cellDep,
+      output: {
+        capacity: cell.output.capacity,
+        lock: {
+          code_hash: cell.output.lock.codeHash,
+          hash_type: cell.output.lock.hashType,
+          args: cell.output.lock.args,
+        },
+        type: cell.output.type
+          ? {
+              code_hash: cell.output.type?.codeHash,
+              hash_type: cell.output.type?.hashType,
+              args: cell.output.type?.args,
+            }
+          : null,
+      },
+      data: cell.data?.content ?? '0x',
+      header: (await txWithStatus).txStatus.blockHash,
+    };
+    mock_info['cell_deps'].push(mock_cellDep);
+  }
+
+  const mock = {
+    mock_info,
+    tx: {
+      version: tx['version'],
+      cell_deps: tx['cellDeps'].map((cellDep) => {
+        return {
+          out_point: {
+            index: cellDep['outPoint']['index'],
+            tx_hash: cellDep['outPoint']['txHash'],
+          },
+          dep_type: cellDep['depType'] == 'code' ? 'code' : 'dep_group',
+        };
+      }),
+      header_deps: tx['headerDeps'],
+      inputs: tx['inputs'].map((input) => {
+        return {
+          previous_output: {
+            index: input['previousOutput']['index'],
+            tx_hash: input['previousOutput']['txHash'],
+          },
+          since: input['since'] ?? '0x0',
+        };
+      }),
+      outputs: tx['outputs'].map((output) => {
+        return {
+          capacity: output['capacity'],
+          lock: {
+            code_hash: output['lock']['codeHash'],
+            hash_type: output['lock']['hashType'],
+            args: output['lock']['args'],
+          },
+          type: output['type']
+            ? {
+                code_hash: output['type']['codeHash'],
+                hash_type: output['type']['hashType'],
+                args: output['type']['args'],
+              }
+            : null,
+        };
+      }),
+      outputs_data: tx['outputsData'],
+      witnesses: tx['witnesses'],
+    },
+  };
+  // write mock into file
+  const mock_folder = pathFromProjectRoot('/debug-txs/');
+  mkdir('-p', mock_folder);
+  const mock_file = pathFromProjectRoot(`/debug-txs/${name}.json`);
+  fs.writeFileSync(mock_file, JSON.stringify(mock, null, 2));
+  logger.info(`dump ${name} tx done, path ${mock_file}`);
+}
+
 export async function burn(
   ckb: CKB,
   client: JSONRPCClient,
@@ -197,6 +360,7 @@ export async function burn(
   }
 
   for (let i = 0; i < batchNum; i++) {
+    await dump_mock_tx(ckb, `burn-tx-${i}.json`, signedBurnTxs[i]);
     const burnETHTxHash = await ckb.rpc.sendTransaction(signedBurnTxs[i], 'passthrough');
     await asyncSleep(intervalMs);
     burnTxHashes.push(burnETHTxHash);
@@ -346,6 +510,8 @@ export async function ethBatchTest(
   lockAmount = '2000000000000000',
   burnAmount = '1000000000000000',
   fromEthSide = true,
+  sudtOwnerPrivkey = '0x',
+  ckbDeps?: CkbDeps,
 ): Promise<void> {
   logger.info('ethBatchTest start!');
   const ckb = new CKB(ckbNodeUrl);
@@ -384,6 +550,10 @@ export async function ethBatchTest(
     await check(client, burnTxs, ckbAddresses, batchNum, ethTokenAddress);
   } else {
     logger.info('from ckb side');
+    // issue sudt
+    logger.info('issue sudt');
+    await issueDevSUDT(ckbNodeUrl, sudtOwnerPrivkey, ckbPrivateKey, ckbIndexerUrl, ckbDeps!, ckbAddresses);
+    logger.info('done issue sudt');
     const burnTxs = await burn(ckb, client, ckbPrivs, ckbAddresses, ethAddress, ethTokenAddress, burnAmount);
     await check(client, burnTxs, ckbAddresses, batchNum, ethTokenAddress);
 

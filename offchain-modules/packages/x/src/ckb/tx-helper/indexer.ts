@@ -277,11 +277,14 @@ $ echo '{
     let cursor: string | undefined;
     const index = 0;
     while (true) {
-      const params = [searchKey, order, `0x${sizeLimit.toString(16)}`, cursor];
+      const params = [searchKey, order, `0x${sizeLimit.toString(16)}`];
+      if (cursor) {
+        params.push(cursor);
+      }
       const res: GetLiveCellsResult = await this.request('get_cells', params);
       const liveCells = res.objects;
       cursor = res.last_cursor;
-      logger.debug('liveCells', liveCells[liveCells.length - 1]);
+      logger.info('liveCells', this.ckbIndexerUrl, JSON.stringify(params), cursor, liveCells);
       for (const liveCell of liveCells) {
         const cell: Cell = {
           cell_output: liveCell.output,
