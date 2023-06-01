@@ -13,6 +13,7 @@ exclude = [
 ]
 
 [profile.release]
+strip = true
 overflow-checks = true
 opt-level = 's'
 lto = true

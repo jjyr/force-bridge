@@ -32,20 +32,20 @@ async function handleDb(action: 'create' | 'drop', MULTISIG_NUMBER: number) {
   if (action === 'create') {
     for (let i = 0; i < MULTISIG_NUMBER; i++) {
       await execShellCmd(
-        `docker exec docker-mysql-1 bash -c "mysql -uroot -proot -e 'create database verifier${i + 1}'";`,
+        `docker exec docker_mysql_1 bash -c "mysql -uroot -proot -e 'create database verifier${i + 1}'";`,
       );
     }
     await execShellCmd(
-      `docker exec docker-mysql-1 bash -c "mysql -uroot -proot -e 'create database collector; create database watcher; show databases;'";`,
+      `docker exec docker_mysql_1 bash -c "mysql -uroot -proot -e 'create database collector; create database watcher; show databases;'";`,
     );
   } else {
     for (let i = 0; i < MULTISIG_NUMBER; i++) {
       await execShellCmd(
-        `docker exec docker-mysql-1 bash -c "mysql -uroot -proot -e 'drop database if exists verifier${i + 1}'";`,
+        `docker exec docker_mysql_1 bash -c "mysql -uroot -proot -e 'drop database if exists verifier${i + 1}'";`,
       );
     }
     await execShellCmd(
-      `docker exec docker-mysql-1 bash -c "mysql -uroot -proot -e 'drop database if exists collector; drop database if exists watcher; show databases;'";`,
+      `docker exec docker_mysql_1 bash -c "mysql -uroot -proot -e 'drop database if exists collector; drop database if exists watcher; show databases;'";`,
     );
   }
 }
@@ -137,6 +137,7 @@ async function generateConfig(
     verifierConfig.common.role = 'verifier';
     verifierConfig.common.orm!.database = `verifier${verifierIndex}`;
     verifierConfig.eth.privateKey = 'verifier';
+    verifierConfig.eth.assetWhiteList = assetWhiteList;
     verifierConfig.ckb.privateKey = 'verifier';
     verifierConfig.common.port = 8000 + verifierIndex;
     verifierConfig.common.collectorPubKeyHash.push(privateKeyToCkbPubkeyHash(CKB_PRIVATE_KEY));

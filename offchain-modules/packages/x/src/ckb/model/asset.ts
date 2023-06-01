@@ -131,7 +131,7 @@ export function getAsset(chain: number, asset: string): Asset {
 }
 
 export class EthAsset extends Asset {
-  public sudtArgs: string;
+  public sudtArgs: string | undefined;
   // '0x00000000000000000000' represents ETH
   // other address represents ERC20 address
   constructor(public address: string, ownerCellTypeHash = '') {
@@ -140,8 +140,8 @@ export class EthAsset extends Asset {
     if ((!asset && !address.startsWith('0x')) || address.length !== 42) {
       throw new Error('invalid ETH asset address');
     }
-    this.sudtArgs = asset?.sudtArgs ?? '';
-    if (!this.sudtArgs.startsWith('0x') || this.sudtArgs.length !== 66) {
+    this.sudtArgs = asset?.sudtArgs;
+    if (this.sudtArgs && (!this.sudtArgs.startsWith('0x') || this.sudtArgs.length !== 66)) {
       throw new Error('invalid SUDT script hash');
     }
     this.chainType = ChainType.ETH;
@@ -161,7 +161,7 @@ export class EthAsset extends Asset {
   }
 
   getSUDTArgs(): string {
-    return this.sudtArgs;
+    return this.sudtArgs ?? '0x';
   }
 }
 
