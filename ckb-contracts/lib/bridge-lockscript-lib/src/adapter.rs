@@ -29,7 +29,7 @@ where
     T: DataLoader,
 {
     fn load_script_args(&self) -> Bytes {
-        self.chain.load_script().unwrap().args().raw_data()
+        self.chain.load_script().unwrap().args().raw_data().to_vec().into()
     }
 
     fn lock_script_exists_in_inputs(&self, data: &[u8]) -> bool {

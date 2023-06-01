@@ -18,7 +18,7 @@ use std::prelude::v1::*;
 pub trait Adapter {
     fn load_output_data(&self) -> Option<RecipientDataView>;
 
-    fn get_sudt_amount_from_source(&self, source: Source, lock_hash: Option<&[u8]>) -> u128;
+    fn get_sudt_amount_from_source(&self, source: Source, lock_hash: Option<&'_ [u8]>) -> u128;
 }
 pub struct ChainAdapter<T: DataLoader> {
     pub chain: T,

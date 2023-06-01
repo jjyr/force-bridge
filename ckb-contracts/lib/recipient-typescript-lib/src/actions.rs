@@ -5,12 +5,12 @@ use ckb_std::ckb_constants::Source;
 use alloc::string::String;
 
 use blake2b_ref::{Blake2b, Blake2bBuilder};
-use ckb_std::ckb_types::packed::{Byte32, Bytes, Script};
+use ckb_std::ckb_types::{packed::{Byte32, Bytes, Script}, prelude::*};
 use force_bridge_types::{
     generated::basic, generated::force_bridge_lockscript::ForceBridgeLockscriptArgs,
     recipient_cell::RecipientDataView,
 };
-use molecule::prelude::{Builder, Byte, Entity};
+use molecule::prelude::{Builder as MolBuilder, Byte as MolByte, Entity as MolEntity};
 use std::prelude::v1::*;
 
 pub const CKB_HASH_PERSONALIZATION: &[u8] = b"ckb-default-hash";
@@ -56,15 +56,15 @@ fn calc_xchain_bridge_lock_hash(
         .asset(asset.into())
         .build();
 
-    let bytes_vec = args.as_slice().iter().map(|b| Byte::new(*b)).collect();
+    // let bytes_vec = args.as_slice().iter().map(|b| Byte::new(*b)).collect();
 
     let force_bridge_lockscript = Script::new_builder()
         .code_hash(
             Byte32::from_slice(for_bridge_lock_code_hash)
                 .expect("for_bridge_lock_code_hash invalid"),
         )
-        .hash_type(Byte::new(for_bridge_lock_hash_type))
-        .args(Bytes::new_builder().set(bytes_vec).build())
+        .hash_type(for_bridge_lock_hash_type.into())
+        .args(args.as_bytes().pack())
         .build();
 
     blake2b_256(force_bridge_lockscript.as_slice())
