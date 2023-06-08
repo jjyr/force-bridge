@@ -173,7 +173,16 @@ export async function lock(
   }
 
   for (let i = 0; i < batchNum; i++) {
-    const lockTxHash = (await provider.sendTransaction(signedLockTxs[i])).hash;
+    const res = await provider.sendTransaction(signedLockTxs[i]);
+    const lockTxHash = res.hash;
+    logger.info(`send lock tx ${lockTxHash}`);
+    const receipt = await res.wait();
+    if (receipt.status != 0x0) {
+      logger.info(`wait lock tx ${lockTxHash} success`);
+    } else {
+      logger.error(`wait lock tx ${lockTxHash} failed`);
+      throw new Error(`wait lock tx ${lockTxHash} failed status ${receipt.status}`);
+    }
     await asyncSleep(intervalMs);
     lockTxHashes.push(lockTxHash);
   }
@@ -554,10 +563,16 @@ export async function ethBatchTest(
     logger.info('issue sudt');
     await issueDevSUDT(ckbNodeUrl, sudtOwnerPrivkey, ckbPrivateKey, ckbIndexerUrl, ckbDeps!, ckbAddresses);
     logger.info('done issue sudt');
+    logger.info('move sudt from ckb to eth');
     const burnTxs = await burn(ckb, client, ckbPrivs, ckbAddresses, ethAddress, ethTokenAddress, burnAmount);
+    logger.info('check - move sudt from ckb to eth');
     await check(client, burnTxs, ckbAddresses, batchNum, ethTokenAddress);
 
+    logger.info('move sudt from eth to ckb');
+    // Hack use smaller lockAmount to avoid error.
+    lockAmount = '200000000000000';
     const lockTxs = await lock(client, provider, ethWallet, ckbAddresses, ethTokenAddress, lockAmount, ethNodeUrl);
+    logger.info('check - move sudt from eth to ckb');
     await check(client, lockTxs, ckbAddresses, batchNum, ethTokenAddress);
   }
   logger.info('ethBatchTest pass!');

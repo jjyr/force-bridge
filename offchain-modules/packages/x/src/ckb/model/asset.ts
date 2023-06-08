@@ -1,4 +1,5 @@
 import { BigNumber } from 'bignumber.js';
+import { WhiteListEthAsset } from '../../config';
 import { ForceBridgeCore } from '../../core';
 import { fromHexString, stringToUint8Array, toHexString } from '../../utils';
 import { SerializeForceBridgeLockscriptArgs } from '../tx-helper/generated/force_bridge_lockscript';
@@ -47,7 +48,9 @@ export abstract class Asset {
       case ChainType.ETH: {
         const whiteAssetList = ForceBridgeCore.config.eth.assetWhiteList;
         if (whiteAssetList.length === 0) return true;
-        return undefined !== whiteAssetList.find((asset) => asset.address === this.getAddress());
+        return (
+          undefined !== whiteAssetList.find((asset) => asset.address.toUpperCase() === this.getAddress().toUpperCase())
+        );
       }
       case ChainType.BTC:
       case ChainType.EOS:
@@ -56,10 +59,26 @@ export abstract class Asset {
         return true;
     }
   }
+
+  assetConfig(): WhiteListEthAsset | undefined {
+    switch (this.chainType) {
+      case ChainType.ETH: {
+        const whiteAssetList = ForceBridgeCore.config.eth.assetWhiteList;
+        const asset = whiteAssetList.find((asset) => asset.address.toUpperCase() === this.getAddress().toUpperCase());
+        return asset;
+      }
+      case ChainType.BTC:
+      case ChainType.EOS:
+      case ChainType.TRON:
+      case ChainType.POLKADOT:
+        return undefined;
+    }
+  }
+
   public getMinimalAmount(): string {
     switch (this.chainType) {
       case ChainType.ETH: {
-        const asset = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === this.getAddress());
+        const asset = this.assetConfig();
         if (!asset) throw new Error('minimal amount not configed');
         return asset.minimalBridgeAmount;
       }
@@ -73,8 +92,7 @@ export abstract class Asset {
   public getBridgeFee(direction: 'in' | 'out'): string {
     switch (this.chainType) {
       case ChainType.ETH: {
-        const whiteAssetList = ForceBridgeCore.config.eth.assetWhiteList;
-        const currentAsset = whiteAssetList.find((asset) => asset.address === this.getAddress());
+        const currentAsset = this.assetConfig();
         if (!currentAsset) throw new Error('asset not in white list');
         if (direction === 'in') return currentAsset.bridgeFee.in;
         return currentAsset.bridgeFee.out;
@@ -89,7 +107,7 @@ export abstract class Asset {
   public getHumanizedDescription(amount: string): string {
     switch (this.chainType) {
       case ChainType.ETH: {
-        const asset = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === this.getAddress());
+        const asset = this.assetConfig();
         if (!asset) throw new Error('asset not in white list');
         const humanizedAmount = new BigNumber(amount).times(new BigNumber(10).pow(-asset.decimal)).toString();
         return `${humanizedAmount} ${asset.symbol}`;
@@ -104,7 +122,7 @@ export abstract class Asset {
   public parseAmount(amount: string): string {
     switch (this.chainType) {
       case ChainType.ETH: {
-        const asset = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === this.getAddress());
+        const asset = this.assetConfig();
         if (!asset) throw new Error('asset not in white list');
         return new BigNumber(amount).times(new BigNumber(10).pow(asset.decimal)).toString();
       }
@@ -136,15 +154,18 @@ export class EthAsset extends Asset {
   // other address represents ERC20 address
   constructor(public address: string, ownerCellTypeHash = '') {
     super(ownerCellTypeHash);
-    const asset = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === address);
+    this.chainType = ChainType.ETH;
+    const asset = this.assetConfig();
     if ((!asset && !address.startsWith('0x')) || address.length !== 42) {
       throw new Error('invalid ETH asset address');
     }
     this.sudtArgs = asset?.sudtArgs;
     if (this.sudtArgs && (!this.sudtArgs.startsWith('0x') || this.sudtArgs.length !== 66)) {
-      throw new Error('invalid SUDT script hash');
+      throw new Error(`invalid SUDT script args ${this.sudtArgs}`);
     }
-    this.chainType = ChainType.ETH;
+    if (address !== '0x0000000000000000000000000000000000000000' && !this.sudtArgs) {
+      throw new Error(`invalid SUDT script args, address ${address} sUDT ${this.sudtArgs}`);
+    }
   }
 
   toBridgeLockscriptArgs(): string {

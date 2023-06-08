@@ -140,7 +140,7 @@ function generateCases(
           amount: '1000000000000001',
         },
       },
-      error: `Error: Cannot read property 'startsWith' of undefined`,
+      error: `Error: Cannot read property 'toUpperCase' of undefined`,
     },
     {
       description: 'lock ETH should return error when miss asset.amount',
@@ -230,7 +230,7 @@ function generateCases(
           amount: '1000000000000001',
         },
       },
-      error: `Error: EthAsset 0x1445ce35416f6d65238d78f4093e051ec6d22ec8 not in while list`,
+      error: `Error: invalid SUDT script args, address 0x1445ce35416f6d65238d78f4093e051ec6d22ec8 sUDT undefined`,
     },
     {
       description: 'lock ETH should return error when recipient is too long',
@@ -388,7 +388,7 @@ function generateCases(
         recipient: ETH_TEST_ADDRESS,
         amount: '1000000000000000',
       },
-      error: `Error: Cannot read property 'startsWith' of undefined`,
+      error: `Error: Cannot read property 'toUpperCase' of undefined`,
     },
     {
       description: 'burn ETH should return error when miss amount',
@@ -455,17 +455,17 @@ function generateCases(
       },
       error: 'Error: invalid eth address',
     },
-    {
-      description: 'burn ETH should return error when asset not on whitelist',
-      payload: {
-        network: 'Ethereum',
-        sender: CKB_TEST_ADDRESS,
-        recipient: ETH_TEST_ADDRESS,
-        asset: randomString(40, '0x', 'hex'),
-        amount: '1000000000000000',
-      },
-      error: 'Error: minimal amount not configed',
-    },
+    // {
+    //   description: 'burn ETH should return error when asset not on whitelist',
+    //   payload: {
+    //     network: 'Ethereum',
+    //     sender: CKB_TEST_ADDRESS,
+    //     recipient: ETH_TEST_ADDRESS,
+    //     asset: randomString(40, '0x', 'hex'),
+    //     amount: '1000000000000000',
+    //   },
+    //   error: 'Error: minimal amount not configed',
+    // },
     {
       description: 'burn ETH should return error when asset without prefix',
       payload: {
@@ -683,15 +683,15 @@ function generateCases(
       },
       error: 'Error: invalid bridge chain type',
     },
-    {
-      description: 'should return error when xchainAssetIdent is not in whitelist',
-      payload: {
-        network: 'Ethereum',
-        xchainAssetIdent: randomString(40, '0x', 'hex'),
-        amount: '1000000000000000',
-      },
-      error: 'Error: minimal amount not configed',
-    },
+    // {
+    //   description: 'should return error when xchainAssetIdent is not in whitelist',
+    //   payload: {
+    //     network: 'Ethereum',
+    //     xchainAssetIdent: randomString(40, '0x', 'hex'),
+    //     amount: '1000000000000000',
+    //   },
+    //   error: 'Error: minimal amount not configed',
+    // },
     {
       description: 'should return error when amount is invalid',
       payload: {

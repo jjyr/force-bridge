@@ -622,7 +622,7 @@ function checkCKBAddress(address) {
 function checkETHAmount(assetIdent, amount) {
   const asset = new EthAsset(assetIdent);
   const minimalAmount = asset.getMinimalAmount();
-  const assetInfo = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === assetIdent);
+  const assetInfo = asset.assetConfig();
   if (!assetInfo) throw new Error('invalid asset');
   const humanizeMinimalAmount = new BigNumber(minimalAmount)
     .times(new BigNumber(10).pow(-assetInfo.decimal))

@@ -10,7 +10,7 @@ export function checkLock(amount: string, token: string, recipient: string, sudt
   if (!asset.inWhiteList()) {
     return `EthAsset ${token} not in while list`;
   }
-  const assetInfo = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === token);
+  const assetInfo = asset.assetConfig();
   if (!assetInfo) return 'invalid asset';
   const minimalAmount = asset.getMinimalAmount();
   if (BigInt(amount) < BigInt(minimalAmount)) {

@@ -118,7 +118,9 @@ export class CkbHandler {
         ForceBridgeCore.config.audit && ForceBridgeCore.config.audit!.individualAuditThreshold
           ? ForceBridgeCore.config.audit!.individualAuditThreshold
           : '100000';
-      const asset = ForceBridgeCore.config.eth.assetWhiteList.find((asset) => asset.address === burn.asset);
+      const asset = ForceBridgeCore.config.eth.assetWhiteList.find(
+        (asset) => asset.address.toUpperCase() === burn.asset.toUpperCase(),
+      );
       if (!asset) throw new Error('asset not in white list');
       const price = await getCachedAssetAVGPrice(asset.symbol);
       if (
@@ -371,6 +373,7 @@ export class CkbHandler {
     if (confirmed && this.role === 'collector') {
       const unlockRecord = unlockRecords[0];
       try {
+        logger.info(`try to get fee to confirm burn, unlockRecord: ${JSON.stringify(unlockRecord)}`);
         const asset = getAsset(unlockRecord.chain, unlockRecord.asset);
         const fee = asset.getBridgeFee('out');
         if (BigInt(unlockRecord.amount) <= BigInt(fee)) {

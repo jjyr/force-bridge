@@ -39,6 +39,7 @@ services:
           - ckb-indexer
   geth:
     image: tockb/geth-priv:v1.10.10
+    build: ./geth
     volumes:
       - type: volume
         source: geth-dag

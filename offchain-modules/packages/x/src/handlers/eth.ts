@@ -1,5 +1,4 @@
 import { encodeToAddress, parseAddress } from '@ckb-lumos/helpers';
-import { BigNumber } from 'ethers';
 import { TransferOutSwitch } from '../audit/switch';
 import { ChainType, EthAsset } from '../ckb/model/asset';
 import { forceBridgeRole } from '../config';
@@ -7,7 +6,7 @@ import { ForceBridgeCore } from '../core';
 import { EthDb, KVDb, BridgeFeeDB } from '../db';
 import { EthUnlockStatus } from '../db/entity/EthUnlock';
 import { EthUnlock, IEthUnlock } from '../db/model';
-import { asserts, nonNullable } from '../errors';
+import { asserts } from '../errors';
 import { BridgeMetricSingleton, txTokenInfo } from '../metric/bridge-metric';
 import { asyncSleep, foreverPromise, fromHexString, retryPromise, uint8ArrayToString } from '../utils';
 import { logger } from '../utils/logger';
@@ -396,7 +395,9 @@ export class EthHandler {
           });
           BridgeMetricSingleton.getInstance(this.role).addBridgeTxMetrics('eth_unlock', 'failed');
           logger.error(
-            `EthHandler doHandleUnlockRecords ckbTxHashes:${unlockTxHashes}  sendUnlockTxs error:${txRes as Error}`,
+            `EthHandler doHandleUnlockRecords ckbTxHashes:${unlockTxHashes}  sendUnlockTxs error:${JSON.stringify(
+              txRes as Error,
+            )}`,
           );
           break;
         }
